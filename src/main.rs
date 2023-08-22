@@ -1,6 +1,6 @@
 mod utils;
 
-use crate::utils::get_server_info;
+use utils::get_server_info;
 
 // An example
 #[tokio::main]
