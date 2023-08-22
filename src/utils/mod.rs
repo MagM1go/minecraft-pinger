@@ -1,35 +1,49 @@
+use serde::Deserialize;
 use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::time::Duration;
-use serde_json::Value;
 
-const MAX_IP_LENGTH: usize = 45 as usize;
+const MAX_IP_LENGTH: usize = 45;
+
+#[derive(Deserialize)]
+pub struct ServerInfo {
+    pub version: Version,
+    pub players: Players,
+    pub description: String,
+    pub favicon: String,
+}
+
+#[derive(Deserialize)]
+pub struct Version {
+    pub name: String,
+    pub protocol: u32,
+}
+
+#[derive(Deserialize)]
+pub struct Players {
+    pub max: u32,
+    pub online: u32,
+}
 
 async fn read_packet(mut stream: TcpStream) -> Vec<u8> {
     let mut buffer = Vec::new();
     let mut byte = [0; 1];
     let mut trailing_zeros = false;
 
-    stream.set_read_timeout(Some(Duration::from_millis(200)))
+    stream
+        .set_read_timeout(Some(Duration::from_millis(200)))
         .expect("Failed to set read timeout");
 
-    loop {
-        match stream.read_exact(&mut byte) {
-            Ok(()) => {
-                if byte[0] == 0 {
-                    if trailing_zeros {
-                        break;
-                    } else {
-                        trailing_zeros = true;
-                    }
-                } else {
-                    trailing_zeros = false;
-                    buffer.push(byte[0]);
-                }
-            }
-            Err(_) => {
+    while let Ok(()) = stream.read_exact(&mut byte) {
+        if byte[0] == 0 {
+            if trailing_zeros {
                 break;
+            } else {
+                trailing_zeros = true;
             }
+        } else {
+            trailing_zeros = false;
+            buffer.push(byte[0]);
         }
     }
 
@@ -54,18 +68,18 @@ fn build_payload(data: &str, port: u16) -> [u8; MAX_IP_LENGTH] {
     payload
 }
 
-pub(crate) async fn get_server_info(ip: &str, port: u16) -> serde_json::Result<serde_json::Value> {
-    let mut stream = TcpStream::connect((ip, port))
-        .expect("Error via connection to server");
+pub async fn get_server_info(ip: &str, port: u16) -> serde_json::Result<ServerInfo> {
+    let mut stream = TcpStream::connect((ip, port)).expect("Error via connection to server");
     let ping_payload = build_payload(ip, port);
 
-    stream.write_all(&ping_payload)
+    stream
+        .write_all(&ping_payload)
         .expect("Failed to send data to server");
 
     let response = read_packet(stream).await;
-    let response_str = std::str::from_utf8(&response[4..])
-        .expect("Failed to convert response to UTF-8 string");
-    let response_json: Value = serde_json::from_str(response_str)?;
+    let response_str =
+        std::str::from_utf8(&response[4..]).expect("Failed to convert response to UTF-8 string");
+    let response_json: ServerInfo = serde_json::from_str(response_str)?;
 
     Ok(response_json)
 }
