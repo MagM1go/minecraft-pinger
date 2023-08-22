@@ -1,16 +1,14 @@
-use tokio;
+mod utils;
 
 use crate::utils::get_server_info;
-
-pub mod utils;
 
 // An example
 #[tokio::main]
 async fn main() {
-    let server_info = get_server_info("mc.hypixel.net", 25565)
-        .await
-        .unwrap();
-    let players = &server_info["players"];
+    let server_info = get_server_info("mc.hypixel.net", 25565).await.unwrap();
 
-    println!("Online: {}\nProtocol: {}\nBrand: {}", players["online"], server_info["version"]["protocol"], server_info["version"]["name"]);
+    println!(
+        "Online: {}\nProtocol: {}\nBrand: {}",
+        server_info.players.online, server_info.version.protocol, server_info.version.name
+    );
 }
